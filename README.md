@@ -110,7 +110,7 @@ r2_final = r2_score(y_test, y_pred_final)
 ## 📄 License
 
 ```text
-Copyright (c) 2026 Mohammad Ghufran Khan
+Copyright (c) 2026 Mohammad Gufran Khan
 
 All rights reserved.
 
