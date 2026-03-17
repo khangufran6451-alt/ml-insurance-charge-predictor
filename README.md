@@ -1,119 +1,148 @@
-# 📊 Regression Model with Automated Feature Selection
+# 🏥 Insurance Charges Prediction — Support Vector Regression (SVR)
 
-## 🚀 Overview
-
-This project demonstrates a **regression workflow** using automated **feature selection** to improve model performance.
-It covers:
-
-* Baseline evaluation with **all features**
-* **Permutation importance** for feature contribution
-* Aggregation of **encoded features**
-* **Iterative feature selection** with **best threshold** and early stopping
-* Final model retraining and evaluation
+A machine learning project that predicts medical insurance charges using **Support Vector Regression (SVR)** with an end-to-end `scikit-learn` Pipeline, including preprocessing, feature selection, and model evaluation.
 
 ---
 
-## 🛠️ Features
+## 📋 Table of Contents
 
-* **Baseline Model Evaluation** – Train and evaluate model with all features
-* **Permutation Feature Importance** – Identify most important features
-* **Aggregated Feature Importance** – Group importance by original features
-* **Iterative Feature Selection** – Automatically find the **best threshold**
-* **Final Model Retraining** – Train using only selected optimal features
-* **Evaluation** – Compare predicted vs actual values, R² scores
+- [Overview](#overview)
+- [Dataset](#dataset)
+- [Project Workflow](#project-workflow)
+- [Results](#results)
+- [Feature Importance](#feature-importance)
+- [Requirements](#requirements)
+- [Usage](#usage)
 
 ---
 
-## 📦 Requirements
+## Overview
+
+This notebook builds a regression model to predict medical insurance charges based on patient demographics and lifestyle information. It uses **Support Vector Regression (SVR)** with an RBF kernel, wrapped in a clean `scikit-learn` Pipeline that handles encoding, scaling, and prediction in a single flow.
+
+A key highlight of this project is the **iterative permutation-importance-based feature selection** with early stopping, which automatically identifies the optimal subset of features.
+
+---
+
+## Dataset
+
+**Source:** `insurance.csv`
+
+| Feature    | Type        | Description                          |
+|------------|-------------|--------------------------------------|
+| `age`      | Numerical   | Age of the primary beneficiary       |
+| `sex`      | Categorical | Gender of the beneficiary            |
+| `bmi`      | Numerical   | Body Mass Index                      |
+| `children` | Numerical   | Number of dependents covered         |
+| `smoker`   | Categorical | Smoking status (yes/no)              |
+| `region`   | Categorical | Residential region in the US         |
+| `charges`  | Numerical   | ⭐ **Target** — Individual medical costs |
+
+- **Total records:** 1,338 (1 duplicate removed → 1,337 used)
+- **Missing values:** None
+
+---
+
+## Project Workflow
+
+### 1. Exploratory Data Analysis (EDA)
+- Inspected data types, shape, and missing values
+- Visualized the distribution of `charges` — identified **right-skew** (non-normal)
+- Created a scatter plot of `age` vs `charges` colored by `smoker` status to understand the charge pattern
+- Investigated high-charge records (>$30,000) and confirmed they are justified by known risk factors (smoking, high BMI, older age) — **not treated as outliers**
+
+### 2. Preprocessing
+- Separated features (`X`) and target (`y = charges`)
+- Auto-detected categorical columns (`sex`, `smoker`, `region`) for One-Hot Encoding
+- Split data: **80% train / 20% test** (`random_state=0`)
+
+### 3. Model Training (sklearn Pipeline)
+```
+Pipeline:
+  └── ColumnTransformer (OneHotEncoder for categoricals, passthrough for numericals)
+  └── StandardScaler
+  └── SVR (kernel='rbf')
+```
+- Target variable (`y`) was also scaled using a separate `StandardScaler` before training
+- Predictions were inverse-transformed back to original dollar scale
+
+### 4. Evaluation (All Features)
+| Metric | Value  |
+|--------|--------|
+| R²     | 0.8403 |
+| MAE    | $2,881 |
+| MAPE   | 0.247  |
+| RMSE   | $5,183 |
+| MAPE (mean-normalised) | 0.205 |
+
+### 5. Feature Importance (Permutation Importance)
+Used `sklearn.inspection.permutation_importance` on the scaled target to rank features by their contribution to model performance.
+
+| Rank | Feature    | Importance |
+|------|------------|------------|
+| 1    | `smoker`   | 1.226303   |
+| 2    | `bmi`      | 0.217089   |
+| 3    | `age`      | 0.179217   |
+| 4    | `children` | 0.010607   |
+| 5    | `region`   | 0.005846   |
+| 6    | `sex`      | -0.000716  |
+
+### 6. Iterative Feature Selection
+- Looped through importance thresholds (low → high) to progressively remove low-importance features
+- Retrained the pipeline at each threshold and tracked R²
+- Applied **early stopping** (patience = 6 rounds without improvement)
+
+**Best Result:** Dropping `sex` (importance < 0) improved the model:
+
+| Configuration         | R²     |
+|-----------------------|--------|
+| All 6 features        | 0.8403 |
+| Best 5 features (no `sex`) | **0.8416** |
+| R² Improvement        | +0.0013 |
+
+---
+
+## Results
+
+The final model uses **5 features** (`smoker`, `bmi`, `age`, `children`, `region`) and achieves:
+
+- **R² = 0.8416** on the test set
+- `smoker` is by far the most dominant predictor of insurance charges
+
+---
+
+## Requirements
+
+```
+pandas
+numpy
+matplotlib
+seaborn
+statsmodels
+scikit-learn
+```
+
+Install all dependencies:
+```bash
+pip install pandas numpy matplotlib seaborn statsmodels scikit-learn
+```
+
+---
+
+## Usage
+
+1. Clone the repository and place `insurance.csv` in the same directory as the notebook.
+2. Open `Insurance_SVR.ipynb` in Jupyter or JupyterLab.
+3. Run all cells from top to bottom.
 
 ```bash
-Python 3.x
-pip install numpy pandas scikit-learn matplotlib seaborn
+jupyter notebook Insurance_SVR.ipynb
 ```
 
 ---
 
-## ⚡ Usage
+## 📝 Notes
 
-1. **Load dataset**
-
-```python
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-```
-
-2. **Train baseline model**
-
-```python
-regressor.fit(X_train, y_train)
-y_pred = regressor.predict(X_test)
-```
-
-3. **Compute permutation importance**
-
-```python
-from sklearn.inspection import permutation_importance
-
-result = permutation_importance(regressor, X_test, y_test, n_repeats=20, random_state=42)
-importance = result.importances_mean
-```
-
-4. **Aggregate and group feature importance**
-
-```python
-group_importance = importance_df.groupby("Original_Feature")["Importance"].mean()
-```
-
-5. **Iterative feature selection with best threshold**
-
-```python
-# Automatically select best threshold and retrain model
-```
-
-6. **Final evaluation**
-
-```python
-y_pred_final = regressor.predict(X_test_final)
-r2_final = r2_score(y_test, y_pred_final)
-```
-
----
-
-## 📊 Results
-
-* **Baseline R² Score (All Features):** `baseline_r2`
-* **Final R² Score (Selected Features):** `final_r2`
-* **Number of Selected Features:** `num_features`
-
-> Visualizations of feature importance and predicted vs actual values can be added using `matplotlib` or `seaborn`.
-
----
-
-## 🗂 Project Structure
-
-```text
-├── data/                  # Dataset files
-├── notebooks/             # Jupyter notebooks
-├── src/                   # Python scripts for modeling & feature selection
-├── README.md              # Project overview
-└── requirements.txt       # Dependencies
-```
-
----
-
-## 🤝 Contributing
-
-* You may **view or copy this code** for personal, educational, or professional use.
-* You **may NOT modify, redistribute, or create derivative works** without explicit permission from the author.
-
----
-
-## 📄 License
-
-```text
-Copyright (c) 2026 Mohammad Gufran Khan
-
-All rights reserved.
-
-You may view and copy this code for personal or educational use only.
-You may NOT modify, distribute, or create derivative works based on this code
-without explicit permission from the author.
+- The `charges` distribution is right-skewed due to the strong influence of smoking status on costs — this is a natural characteristic of the data, not a data quality issue.
+- High-charge records (>$30,000) were retained as they correspond to legitimate high-risk profiles (smokers, high BMI, older age).
+- SVR requires feature scaling — both `X` and `y` are scaled before training to ensure optimal SVM performance.
